@@ -1,0 +1,115 @@
+version: "2"
+linters:
+  enable:
+    - dupword
+    - errorlint
+    - bodyclose
+    - errcheck
+    - gosec
+    - loggercheck
+    - mirror
+    - misspell
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - testifylint
+    - thelper
+    - usestdlibvars
+    - govet
+    - reassign
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - funcorder
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - goconst
+    - gocritic
+    - gosec
+    - govet
+    - iface
+    - ineffassign
+    - makezero
+    - mirror
+    - nakedret
+    - unused
+    - whitespace
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: true
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: context-as-argument
+          arguments:
+            - allowTypesBefore: "*testing.T"
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - sayRepetitiveInsteadOfStutters
+        - name: unhandled-error
+          arguments:
+            - fmt.Print.*
+            - fmt.Fprint.*
+            - bytes.Buffer.Write
+            - bytes.Buffer.WriteByte
+            - bytes.Buffer.WriteString
+            - strings.Builder.WriteString
+            - strings.Builder.WriteRune
+        - name: add-constant
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: argument-limit
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: banned-characters
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: function-result-limit
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: file-header
+          disabled: true
+        - name: empty-lines
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+    usestdlibvars:
+      http-method: true
+      http-status-code: true
+      time-weekday: false
+      time-layout: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+issues:
+  max-same-issues: 50
