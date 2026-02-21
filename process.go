@@ -3,31 +3,34 @@ package galao
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os/exec"
+	"sync"
 )
-
-/* type incomingMessage struct {
-	Type string    `json:"type"`
-	Tree *ViewNode `json:"tree,omitempty"`
-} */
 
 type outgoingMessage struct {
 	Type  string `json:"type"`
 	ID    string `json:"id"`
 	Event string `json:"event"`
+	Error string `json:"error,omitempty"`
 }
 
 type process struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout *bufio.Scanner
+	cmd   *exec.Cmd
+	stdin io.WriteCloser
+
+	rd *bufio.Reader
+
+	mu     sync.Mutex
+	closed bool
 }
 
-func startProcess(binaryPath string) (*process, error) {
-	ctx := context.Background()
+func startProcess(ctx context.Context, binaryPath string) (*process, error) {
 	cmd := exec.CommandContext(ctx, binaryPath)
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -36,31 +39,65 @@ func startProcess(binaryPath string) (*process, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+
 	return &process{
-		cmd:    cmd,
-		stdin:  stdin,
-		stdout: bufio.NewScanner(stdoutPipe),
+		cmd:   cmd,
+		stdin: stdin,
+		rd:    bufio.NewReader(stdoutPipe),
 	}, nil
 }
 
 func (p *process) send(v any) error {
-	data, err := json.Marshal(v)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed {
+		return io.ErrClosedPipe
+	}
+
+	payload, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	data = append(data, '\n')
-	_, err = p.stdin.Write(data)
+
+	var lenBuf [4]byte
+	binary.BigEndian.PutUint32(lenBuf[:], uint32(len(payload)))
+
+	if _, err := p.stdin.Write(lenBuf[:]); err != nil {
+		return err
+	}
+	_, err = p.stdin.Write(payload)
 	return err
 }
 
-func (p *process) readLine() (outgoingMessage, error) {
-	var msg outgoingMessage
-	if p.stdout.Scan() {
-		err := json.Unmarshal(p.stdout.Bytes(), &msg)
-		return msg, err
+func (p *process) readMessage(out any) error {
+	var lenBuf [4]byte
+	if _, err := io.ReadFull(p.rd, lenBuf[:]); err != nil {
+		return err
 	}
-	return msg, io.EOF
+
+	n := binary.BigEndian.Uint32(lenBuf[:])
+	if n == 0 {
+		return fmt.Errorf("invalid frame length 0")
+	}
+
+	payload := make([]byte, n)
+	if _, err := io.ReadFull(p.rd, payload); err != nil {
+		return err
+	}
+
+	return json.Unmarshal(payload, out)
+}
+
+func (p *process) close() error {
+	p.mu.Lock()
+	p.closed = true
+	defer p.mu.Unlock()
+
+	_ = p.stdin.Close()
+	return nil
 }

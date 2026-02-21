@@ -10,27 +10,25 @@ import Combine
 
 class AppState: ObservableObject {
     @Published var root: ViewNode? = nil
+    private let io = FramedIO()
     
     func send(event: OutgoingMessage) {
-        guard let data = try? JSONEncoder().encode(event),
-              let str = String(data: data, encoding: .utf8) else { return }
-        print(str)
-        fflush(stdout)
+        io.writeJSON(event)
     }
     
     func startReading() {
-            Thread.detachNewThread {
-                while let line = readLine(strippingNewline: true) {
-                    guard let data = line.data(using: .utf8),
-                          let msg = try? JSONDecoder().decode(IncomingMessage.self, from: data)
-                    else { continue }
-                    
-                    DispatchQueue.main.async {
-                        if msg.type == "set_view" {
-                            self.root = msg.tree
-                        }
+        io.writeJSON(["type": "ready"])
+
+        Thread.detachNewThread {
+            while let data = self.io.readFrame() {
+                DispatchQueue.main.async {
+                    guard let msg = try? JSONDecoder().decode(IncomingMessage.self, from: data) else { return }
+                    if msg.type == "set_view" {
+                        self.root = msg.tree
                     }
                 }
             }
         }
+    }
 }
+

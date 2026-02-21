@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/timwehrle/galao"
@@ -31,7 +32,7 @@ func main() {
 		render()
 	})
 
-	if err := app.Run(func() {
+	if err := app.Run(context.Background(), func() {
 		render()
 	}); err != nil {
 		panic(err)
